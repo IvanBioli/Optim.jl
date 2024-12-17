@@ -5,6 +5,7 @@ struct KrylovTrustRegion{T <: Real} <: SecondOrderOptimizer
     rho_lower::T
     rho_upper::T
     cg_tol::T
+    inner_maxiter::Integer
 end
 
 
@@ -13,30 +14,30 @@ KrylovTrustRegion(; initial_radius::Real = 1.0,
                     eta::Real = 0.1,
                     rho_lower::Real = 0.25,
                     rho_upper::Real = 0.75,
-                    cg_tol::Real = 0.01) =
+                    cg_tol::Real = 0.01,
+                    inner_maxiter::Int64 = typemax(Int64)) =
                     KrylovTrustRegion(initial_radius, max_radius, eta,
-                                  rho_lower, rho_upper, cg_tol)
+                                  rho_lower, rho_upper, cg_tol, inner_maxiter)
 
 update_h!(d, state, method::KrylovTrustRegion) = nothing
 
-# TODO: support x::Array{T,N} et al.?
 mutable struct KrylovTrustRegionState{T} <: AbstractOptimizerState
-    x::Vector{T}
-    x_previous::Vector{T}
+    x::AbstractVector{T}
+    x_previous::AbstractVector{T}
     f_x_previous::T
-    s::Vector{T}
+    s::AbstractVector{T}
     interior::Bool
     accept_step::Bool
     radius::T
     m_diff::T
     f_diff::T
     rho::T
-    r::Vector{T}  # residual vector
-    d::Vector{T}  # direction to consider
+    r::AbstractVector{T}  # residual vector
+    d::AbstractVector{T}  # direction to consider
     cg_iters::Int
 end
 
-function initial_state(method::KrylovTrustRegion, options, d, initial_x::Array{T}) where T
+function initial_state(method::KrylovTrustRegion, options, d, initial_x::AbstractArray{T}) where T
     n = length(initial_x)
     # Maintain current gradient in gr
     @assert(method.max_radius > 0)
@@ -57,8 +58,8 @@ function initial_state(method::KrylovTrustRegion, options, d, initial_x::Array{T
                            zero(T),            # model change
                            zero(T),            # observed f change
                            zero(T),            # state.rho
-                           Vector{T}(undef, n),       # residual vector
-                           Vector{T}(undef, n),       # direction to consider
+                           zero(initial_x),       # residual vector
+                           zero(initial_x),       # direction to consider
                            0)                  # cg_iters
 end
 
@@ -102,7 +103,7 @@ function cg_steihaug!(objective::TwiceDifferentiableHV,
     rho0 = 1e100  # just a big number
 
     state.cg_iters = 0
-    for i in 1:n
+    for i in 1:min(n, method.inner_maxiter)
         state.cg_iters += 1
         hv_product!(objective, x, d)
         dHd = dot(d, Hd)
