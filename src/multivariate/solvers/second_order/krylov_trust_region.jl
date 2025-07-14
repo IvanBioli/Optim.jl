@@ -1,4 +1,4 @@
-struct KrylovTrustRegion{T <: Real} <: SecondOrderOptimizer
+struct KrylovTrustRegion{T<:Real} <: SecondOrderOptimizer
     initial_radius::T
     max_radius::T
     eta::T
@@ -64,7 +64,15 @@ function initial_state(method::KrylovTrustRegion, options, d, initial_x::Abstrac
 end
 
 
-function trace!(tr, d, state, iteration, method::KrylovTrustRegion, options, curr_time=time())
+function trace!(
+    tr,
+    d,
+    state,
+    iteration,
+    method::KrylovTrustRegion,
+    options,
+    curr_time = time(),
+)
     dt = Dict()
     dt["time"] = curr_time
     if options.extended_trace
@@ -79,23 +87,28 @@ function trace!(tr, d, state, iteration, method::KrylovTrustRegion, options, cur
         dt["cg_iters"] = state.cg_iters
     end
     g_norm = norm(gradient(d), Inf)
-    update!(tr,
-            iteration,
-            value(d),
-            g_norm,
-            dt,
-            options.store_trace,
-            options.show_trace,
-            options.show_every,
-            options.callback)
+    update!(
+        tr,
+        iteration,
+        value(d),
+        g_norm,
+        dt,
+        options.store_trace,
+        options.show_trace,
+        options.show_every,
+        options.callback,
+    )
 end
 
 
-function cg_steihaug!(objective::TwiceDifferentiableHV,
-                      state::KrylovTrustRegionState{T},
-                      method::KrylovTrustRegion) where T
+function cg_steihaug!(
+    objective::TwiceDifferentiableHV,
+    state::KrylovTrustRegionState{T},
+    method::KrylovTrustRegion,
+) where {T}
     n = length(state.x)
-    x, g, d, r, z, Hd = state.x, gradient(objective), state.d, state.r, state.s, hv_product(objective)
+    x, g, d, r, z, Hd =
+        state.x, gradient(objective), state.d, state.r, state.s, hv_product(objective)
 
     fill!(z, 0.0)  # the search direction is initialized to the 0 vector,
     r .= g  # so at first the whole gradient is the residual.
@@ -113,7 +126,7 @@ function cg_steihaug!(objective::TwiceDifferentiableHV,
 
         alpha = dot(r, r) / dHd
 
-        if dHd < 0. || norm(z .+ alpha .* d) >= state.radius
+        if dHd < 0.0 || norm(z .+ alpha .* d) >= state.radius
             a_ = dot(d, d)
             b_ = 2 * dot(z, d)
             c_ = dot(z, z) - state.radius^2
@@ -142,9 +155,11 @@ function cg_steihaug!(objective::TwiceDifferentiableHV,
 end
 
 
-function update_state!(objective::TwiceDifferentiableHV,
-                          state::KrylovTrustRegionState,
-                          method::KrylovTrustRegion)
+function update_state!(
+    objective::TwiceDifferentiableHV,
+    state::KrylovTrustRegionState,
+    method::KrylovTrustRegion,
+)
     state.m_diff = cg_steihaug!(objective, state, method)
     @assert state.m_diff <= 0
 
@@ -189,7 +204,10 @@ function assess_convergence(state::KrylovTrustRegionState, d, options::Options)
     # Absolute Tolerance
     # if abs(f_x - f_x_previous) < f_tol
     # Relative Tolerance
-    if abs(state.f_diff) < max(options.f_reltol * (abs(value(d)) + options.f_reltol), eps(abs(value(d))+abs(state.f_x_previous)))
+    if abs(state.f_diff) < max(
+        options.f_reltol * (abs(value(d)) + options.f_reltol),
+        eps(abs(value(d)) + abs(state.f_x_previous)),
+    )
         f_converged = true
     end
 
