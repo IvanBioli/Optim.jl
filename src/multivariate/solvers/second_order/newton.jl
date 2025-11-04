@@ -27,7 +27,7 @@ function Newton(;
     Newton(_alphaguess(alphaguess), linesearch)
 end
 
-Base.summary(::Newton) = "Newton's Method"
+Base.summary(io::IO, ::Newton) = print(io, "Newton's Method")
 
 mutable struct NewtonState{Tx,T,F<:Cholesky} <: AbstractOptimizerState
     x::Tx
@@ -51,7 +51,7 @@ function initial_state(method::Newton, options, d, initial_x)
         copy(initial_x), # Maintain current state in state.x
         copy(initial_x), # Maintain previous state in state.x_previous
         T(NaN), # Store previous f in state.f_x_previous
-        Cholesky(similar(d.H, T, 0, 0), :U, BLAS.BlasInt(0)),
+        Cholesky(similar(d.H, T, 0, 0), :U, 0),
         similar(initial_x), # Maintain current search direction in state.s
         @initial_linesearch()...,
     )
@@ -87,7 +87,7 @@ function update_state!(d, state::NewtonState, method::Newton)
     return !lssuccess # break on linesearch error
 end
 
-function trace!(tr, d, state, iteration, method::Newton, options, curr_time = time())
+function trace!(tr, d, state::NewtonState, iteration::Integer, method::Newton, options::Options, curr_time = time())
     dt = Dict()
     dt["time"] = curr_time
     if options.extended_trace
